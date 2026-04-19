@@ -31,12 +31,12 @@
 #'   been re-coded for anonymity.
 #'
 #' @examples
-#' data(dual_task_example)
-#' head(dual_task_example)
+#' data(task_example)
+#' head(task_example)
 #'
 #' \donttest{
 #' signals <- inough_signals(
-#'   dual_task_example,
+#'   task_example,
 #'   correct  = correct ~ stim + weight + orient + cue_type + block,
 #'   response = response ~ response,
 #'   id       = "participant"
@@ -44,4 +44,4 @@
 #' det <- inough_detect(signals)
 #' summary(det)
 #' }
-"dual_task_example"
+"task_example"

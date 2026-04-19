@@ -25,6 +25,25 @@ install.packages("/path/to/inough", repos = NULL, type = "source")
 
 **Dependencies:** `lme4`, `ggplot2`, `patchwork`, `rlang`, `jsonlite`
 
+## Example report
+
+A pre-rendered HTML report (built from the bundled `task_example` dataset, 20 participants × ~250 trials each) is included at [`examples/example_report.html`](examples/example_report.html). To view rendered directly from GitHub:
+
+> [**Open example report**](https://htmlpreview.github.io/?https://github.com/pawlenartowicz/inough/blob/main/examples/example_report.html)
+
+The same report can be regenerated locally with:
+
+```r
+library(inough)
+data(task_example)
+signals  <- inough_signals(task_example,
+                           correct  = correct ~ stim + weight + orient + cue_type + block,
+                           response = response ~ response,
+                           id       = "participant")
+detected <- inough_detect(signals)
+report(detected, file = "example_report.html")
+```
+
 ## Quick start
 
 ```r
