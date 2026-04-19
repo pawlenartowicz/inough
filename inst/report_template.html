@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>inough - Inattention Report</title>
+<script>const SUMMARY = /*{{SUMMARY_JSON}}*/{};</script>
+<script>const TRIAL_DATA = /*{{TRIAL_DATA_JSON}}*/{};</script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f0f2f5; display: flex; height: 100vh; overflow: hidden; }
+#main-scroll { flex: 1; overflow-y: auto; display: flex; justify-content: center; background: #f0f2f5; }
+/* Sidebar */
+#sidebar { width: 360px; min-width: 360px; background: #f8f9fa; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; height: 100vh; }
+#sidebar-header { padding: 14px 16px 10px; border-bottom: 1px solid #dee2e6; }
+#sidebar-header h1 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+#sidebar-controls { display: flex; gap: 6px; }
+#sidebar-controls select, #sidebar-controls input { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; background: #fff; }
+#sidebar-controls input { flex: 1; }
+#list-header { display: grid; grid-template-columns: 10px 1fr 42px 42px 24px 40px; gap: 6px; padding: 4px 16px; font-size: 10px; text-transform: uppercase; color: #adb5bd; border-bottom: 1px solid #dee2e6; }
+#participant-list { flex: 1; overflow-y: auto; }
+.p-row { display: grid; grid-template-columns: 10px 1fr 42px 42px 24px 40px; gap: 6px; align-items: center; padding: 6px 16px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #eee; }
+.p-row:hover { background: #eef2f7; }
+.p-row.selected { background: #e3edf7; font-weight: 600; }
+.p-dot { width: 8px; height: 8px; border-radius: 50%; }
+.p-dot.bailout { background: #dc3545; }
+.p-dot.flagged { background: #fd7e14; }
+.p-dot.clean { background: #28a745; }
+.p-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-num { font-size: 11px; color: #6c757d; text-align: right; }
+.p-num.dim { color: #ced4da; }
+.p-bail-reason { grid-column: 3 / -1; font-size: 10px; color: #dc3545; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Main */
+#main { max-width: 1600px; width: 100%; padding: 24px 32px; }
+/* Summary cards */
+.summary-cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px 20px; min-width: 140px; flex: 1; }
+.card .label { font-size: 11px; text-transform: uppercase; color: #6c757d; letter-spacing: .5px; }
+.card .value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+.charts-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.chart-box { flex: 1; min-width: 240px; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px; }
+.chart-box h3 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.chart-box .chart-sub { font-size: 11px; color: #6c757d; margin-bottom: 4px; }
+.chart-box svg { width: 100%; display: block; }
+.acc-cards .card.acc { border-left: 3px solid #6c8ebf; }
+.acc-cards .card.acc .delta { font-size: 12px; color: #28a745; margin-left: 6px; font-weight: 600; }
+.acc-cards .card.acc .delta.neg { color: #dc3545; }
+/* Top-5 table */
+.top5 { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+.top5 h3 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.top5 table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.top5 th { text-align: left; padding: 4px 8px; color: #6c757d; font-size: 11px; border-bottom: 1px solid #dee2e6; }
+.top5 td { padding: 4px 8px; border-bottom: 1px solid #eee; }
+.top5 tr.clickable { cursor: pointer; }
+.top5 tr.clickable:hover { background: #f0f4ff; }
+.top5 .delta.pos { color: #198754; font-weight: 600; }
+.top5 .delta.neg { color: #dc3545; font-weight: 600; }
+/* Participant view */
+#participant-view { display: none; }
+#pv-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+#pv-header h2 { font-size: 18px; }
+#pv-back { cursor: pointer; font-size: 13px; color: #0d6efd; text-decoration: underline; background: none; border: none; font: inherit; }
+.pv-meta { display: flex; gap: 16px; font-size: 13px; color: #495057; margin-bottom: 16px; flex-wrap: wrap; }
+.pv-meta span { background: #f1f3f5; padding: 3px 10px; border-radius: 4px; }
+.bail-banner { background: #dc3545; color: #fff; padding: 16px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.panel-stack svg { width: 100%; display: block; }
+.panel-label { font-size: 11px; font-weight: 600; color: #495057; margin: 8px 0 2px; }
+/* Chunk table */
+.chunk-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+.chunk-table th { text-align: left; padding: 4px 8px; font-weight: 600; color: #6c757d; font-size: 11px; border-bottom: 1px solid #dee2e6; }
+.chunk-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
+.chunk-row:hover { background: #f0f4ff; }
+/* Export button */
+#export-btn { position: fixed; bottom: 16px; right: 20px; background: #0d6efd; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; z-index: 50; }
+#export-btn:hover { background: #0b5ed7; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>inough report</h1>
+    <div id="sidebar-controls">
+      <select id="sort-select"><option value="status">Status</option><option value="lz_asc">LZ (low first)</option><option value="lz_desc">LZ (high first)</option><option value="pct">% Flagged</option><option value="acc">Accuracy (low first)</option><option value="chunks">Chunks (most first)</option><option value="id">ID</option></select>
+      <input id="search-input" placeholder="Search ID...">
+    </div>
+  </div>
+  <div id="list-header"><span></span><span>ID</span><span>Acc</span><span>LZ</span><span>Ch</span><span>Flag%</span></div>
+  <div id="participant-list"></div>
+</div>
+<div id="main-scroll"><div id="main">
+  <div id="summary-view"></div>
+  <div id="participant-view">
+    <div id="pv-header"><button id="pv-back">&larr; Back</button><h2 id="pv-title"></h2></div>
+    <div class="pv-meta" id="pv-meta"></div>
+    <div id="pv-content"></div>
+  </div>
+</div>
+<button id="export-btn" title="Download flagged chunks as CSV">Export CSV</button>
+
+<script>
+(function() {
+"use strict";
+const P = SUMMARY.participants || [];
+const C = SUMMARY.chunks || [];
+const M = SUMMARY.meta || {};
+const ctrl = M.control || {};
+const heur = M.heuristics || {};
+let selectedId = null;
+let currentTd = null;
+let panelSvgs = [];
+
+// --- Sidebar ---
+const listEl = document.getElementById("participant-list");
+const sortSel = document.getElementById("sort-select");
+const searchIn = document.getElementById("search-input");
+
+const statusOrder = { bailout: 0, flagged: 1, clean: 2 };
+
+function sortedParticipants() {
+  const key = sortSel.value;
+  const q = searchIn.value.toLowerCase();
+  let arr = P.filter(p => !q || p.id.toLowerCase().includes(q));
+  arr.sort((a, b) => {
+    if (key === "status") return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.id.localeCompare(b.id);
+    if (key === "lz_asc") return (a.lz ?? 0) - (b.lz ?? 0);
+    if (key === "lz_desc") return (b.lz ?? 0) - (a.lz ?? 0);
+    if (key === "pct") return (b.pct_flagged ?? 0) - (a.pct_flagged ?? 0);
+    if (key === "acc") return (a.mean_accuracy ?? 0) - (b.mean_accuracy ?? 0);
+    if (key === "chunks") return (b.n_chunks ?? 0) - (a.n_chunks ?? 0) || (b.pct_flagged ?? 0) - (a.pct_flagged ?? 0);
+    return a.id.localeCompare(b.id, undefined, { numeric: true });
+  });
+  return arr;
+}
+
+function renderList() {
+  const arr = sortedParticipants();
+  listEl.innerHTML = arr.map(p => {
+    const sel = p.id === selectedId ? " selected" : "";
+    const isBail = p.status === "bailout";
+    let cols = `<span class="p-dot ${p.status}"></span><span class="p-name">${p.id}</span>`;
+    if (isBail) {
+      cols += `<span class="p-bail-reason">${p.bailout_reason || "bail-out"}</span>`;
+    } else {
+      cols += `<span class="p-num">${(p.mean_accuracy ?? 0).toFixed(2)}</span>`;
+      cols += `<span class="p-num">${(p.lz ?? 0).toFixed(2)}</span>`;
+      cols += `<span class="p-num${(p.n_chunks ?? 0) === 0 ? " dim" : ""}">${p.n_chunks ?? 0}</span>`;
+      cols += `<span class="p-num${(p.pct_flagged ?? 0) === 0 ? " dim" : ""}">${(p.pct_flagged ?? 0).toFixed(1)}</span>`;
+    }
+    return `<div class="p-row${sel}" data-id="${p.id}" tabindex="-1">${cols}</div>`;
+  }).join("");
+}
+
+sortSel.addEventListener("change", renderList);
+searchIn.addEventListener("input", renderList);
+
+listEl.addEventListener("click", e => {
+  const row = e.target.closest(".p-row");
+  if (row) selectParticipant(row.dataset.id);
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const rows = [...listEl.querySelectorAll(".p-row")];
+    if (!rows.length) return;
+    let idx = rows.findIndex(r => r.classList.contains("selected"));
+    idx = e.key === "ArrowDown" ? Math.min(idx + 1, rows.length - 1) : Math.max(idx - 1, 0);
+    selectParticipant(rows[idx].dataset.id);
+    rows[idx].scrollIntoView({ block: "nearest" });
+  }
+});
+
+// --- Summary View ---
+function renderSummary() {
+  const sv = document.getElementById("summary-view");
+  const agg = M.aggregate || {};
+
+  const nBailLz = agg.n_bail_lz ?? P.filter(p => p.bailout_reason === "lz" || p.bailout_reason === "both").length;
+  const nBailChance = agg.n_bail_chance ?? P.filter(p => p.bailout_reason === "chance").length;
+  const nBail = P.filter(p => p.status === "bailout").length;
+  const nChunked = P.filter(p => (p.n_chunks ?? 0) > 0).length;
+  const sigC = C.filter(c => c.significant);
+  const totalFlagged = sigC.reduce((s, c) => s + (c.end - c.start + 1), 0);
+  const meanChunkLen = sigC.length ? (sigC.reduce((s, c) => s + (c.end - c.start + 1), 0) / sigC.length).toFixed(1) : "0";
+
+  const accRaw = agg.mean_acc_raw;
+  const accCorr = agg.mean_acc_no_chunks;
+  const accCorrNoLz = agg.mean_acc_no_chunks_no_lz_bail;
+
+  let html = `<div class="summary-cards">
+    <div class="card"><div class="label">Participants</div><div class="value">${M.n_participants ?? P.length}</div></div>
+    <div class="card"><div class="label">Bailed &mdash; LZ</div><div class="value">${nBailLz} (${pct(nBailLz, P.length)}%)</div></div>
+    <div class="card"><div class="label">Bailed &mdash; chance</div><div class="value">${nBailChance} (${pct(nBailChance, P.length)}%)</div></div>
+    <div class="card"><div class="label">With chunks</div><div class="value">${nChunked} (${pct(nChunked, P.length)}%)</div></div>
+    <div class="card"><div class="label">Flagged trials</div><div class="value">${totalFlagged}</div></div>
+    <div class="card"><div class="label">Mean chunk length</div><div class="value">${meanChunkLen}</div></div>
+  </div>`;
+
+  html += `<div class="summary-cards acc-cards">
+    <div class="card acc"><div class="label">Mean acc &mdash; raw</div><div class="value">${fmt(accRaw)}</div></div>
+    <div class="card acc"><div class="label">Mean acc &mdash; &minus;chunks</div><div class="value">${fmt(accCorr)}${deltaSpan(accCorr, accRaw)}</div></div>
+    <div class="card acc"><div class="label">Mean acc &mdash; &minus;chunks, &minus;LZ bail</div><div class="value">${fmt(accCorrNoLz)}${deltaSpan(accCorrNoLz, accRaw)}</div></div>
+  </div>`;
+
+  html += `<div class="charts-row">
+    <div class="chart-box"><h3>ACC: pre vs post (&minus;chunks)</h3><div class="chart-sub">Above diagonal = cleaning raised acc. Bailouts in gray.</div><div id="ch-acc-scatter"></div></div>
+    <div class="chart-box"><h3>LZ: pre vs post (&minus;chunks)</h3><div class="chart-sub">Raw LZ (not permutation-normalized). Bailouts in gray.</div><div id="ch-lz-scatter"></div></div>
+    <div class="chart-box"><h3>LZ vs ACC</h3><div class="chart-sub">Color = status. Dashed: LZ threshold, chance acc.</div><div id="ch-lz-acc"></div></div>
+  </div>`;
+
+  html += `<div class="charts-row">
+    <div class="chart-box"><h3>&Delta;acc from cleaning (&minus;chunks), per participant</h3><div class="chart-sub">Bailouts excluded. By construction, chunks lower acc, so &Delta; &ge; 0.</div><div id="ch-delta"></div></div>
+    <div class="chart-box"><h3>% flagged per participant</h3><div class="chart-sub"><span style="display:inline-block;width:10px;height:10px;background:#6c8ebf;vertical-align:middle;margin-right:4px;"></span>non-bailout &nbsp;<span style="display:inline-block;width:10px;height:10px;background:#dc3545;vertical-align:middle;margin:0 4px 0 8px;"></span>bailout (100%)</div><div id="ch-pct"></div></div>
+  </div>`;
+
+  html += `<div class="top5"><h3>Top 5 &mdash; most-affected by cleaning (|&Delta;acc|)</h3>
+    <table><thead><tr>
+      <th>ID</th><th>Status</th><th>N</th><th>Acc raw</th><th>Acc &minus;chunks</th><th>&Delta;</th><th>Chunks</th>
+    </tr></thead><tbody id="top5-body"></tbody></table></div>`;
+
+  sv.innerHTML = html;
+
+  const accPairs = P
+    .filter(p => p.mean_accuracy != null && p.mean_accuracy_corrected != null)
+    .map(p => ({ id: p.id, x: p.mean_accuracy, y: p.mean_accuracy_corrected, bail: p.status === "bailout" }));
+  drawScatter("ch-acc-scatter", accPairs, { xLabel: "Pre", yLabel: "Post (\u2212chunks)", diag: true, domain: [0, 1] });
+
+  const lzPairs = P
+    .filter(p => p.lz_raw != null && p.lz_raw_corrected != null)
+    .map(p => ({ id: p.id, x: p.lz_raw, y: p.lz_raw_corrected, bail: p.status === "bailout" }));
+  drawScatter("ch-lz-scatter", lzPairs, { xLabel: "Pre", yLabel: "Post (\u2212chunks)", diag: true, domain: null });
+
+  const lzAcc = P.map(p => ({ id: p.id, x: p.lz ?? 0, y: p.mean_accuracy ?? 0, status: p.status }));
+  drawScatter("ch-lz-acc", lzAcc, {
+    xLabel: "LZ",
+    yLabel: "Accuracy",
+    colorBy: "status",
+    xLine: ctrl.lz_threshold,
+    yLine: 0.5,
+    domain: null
+  });
+
+  const deltas = P
+    .filter(p => p.status !== "bailout" && p.mean_accuracy != null && p.mean_accuracy_corrected != null)
+    .map(p => p.mean_accuracy_corrected - p.mean_accuracy);
+  drawDeltaHist("ch-delta", deltas);
+
+  drawStackedPctHist("ch-pct", P);
+
+  renderTop5();
+}
+
+function fmt(v) { return (v == null || isNaN(v)) ? "\u2014" : (+v).toFixed(3); }
+
+function deltaSpan(a, b) {
+  if (a == null || b == null || isNaN(a) || isNaN(b)) return "";
+  const d = a - b;
+  if (Math.abs(d) < 0.0005) return "";
+  const sign = d > 0 ? "+" : "\u2212";
+  const cls = d < 0 ? " neg" : "";
+  return ` <span class="delta${cls}">${sign}${Math.abs(d).toFixed(3)}</span>`;
+}
+
+function renderTop5() {
+  const rows = P
+    .filter(p => p.mean_accuracy != null && p.mean_accuracy_corrected != null)
+    .map(p => ({
+      ...p,
+      delta: p.mean_accuracy_corrected - p.mean_accuracy
+    }))
+    .filter(p => Math.abs(p.delta) > 1e-9)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 5);
+  const tb = document.getElementById("top5-body");
+  if (!tb) return;
+  if (!rows.length) { tb.innerHTML = `<tr><td colspan="7" style="color:#adb5bd">No participants affected by cleaning.</td></tr>`; return; }
+  tb.innerHTML = rows.map(r => {
+    const d = r.delta;
+    const cls = d >= 0 ? "pos" : "neg";
+    const sign = d >= 0 ? "+" : "\u2212";
+    return `<tr class="clickable" data-id="${r.id}">
+      <td>${r.id}</td>
+      <td>${r.status}${r.bailout_reason ? ` (${r.bailout_reason})` : ""}</td>
+      <td>${r.n_trials}</td>
+      <td>${r.mean_accuracy.toFixed(3)}</td>
+      <td>${r.mean_accuracy_corrected.toFixed(3)}</td>
+      <td class="delta ${cls}">${sign}${Math.abs(d).toFixed(3)}</td>
+      <td>${r.n_chunks ?? 0}</td>
+    </tr>`;
+  }).join("");
+  tb.querySelectorAll("tr.clickable").forEach(tr => {
+    tr.addEventListener("click", () => selectParticipant(tr.dataset.id));
+  });
+}
+
+function pct(n, d) { return d ? (100 * n / d).toFixed(1) : "0.0"; }
+
+function drawScatter(elId, pts, opts) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!pts.length) { el.innerHTML = `<div style="font-size:11px;color:#adb5bd">No data.</div>`; return; }
+  opts = opts || {};
+  const W = 320, H = 240, pad = { t: 10, r: 12, b: 30, l: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  const allX = pts.map(p => p.x), allY = pts.map(p => p.y);
+  let xmn, xmx, ymn, ymx;
+  if (opts.domain) { xmn = opts.domain[0]; xmx = opts.domain[1]; ymn = opts.domain[0]; ymx = opts.domain[1]; }
+  else {
+    xmn = Math.min(...allX); xmx = Math.max(...allX);
+    ymn = Math.min(...allY); ymx = Math.max(...allY);
+    const pX = (xmx - xmn) * 0.05 || 0.05, pY = (ymx - ymn) * 0.05 || 0.05;
+    xmn -= pX; xmx += pX; ymn -= pY; ymx += pY;
+    if (opts.diag) { const lo = Math.min(xmn, ymn), hi = Math.max(xmx, ymx); xmn = ymn = lo; xmx = ymx = hi; }
+  }
+  const xR = xmx - xmn || 1, yR = ymx - ymn || 1;
+  const xS = v => pad.l + ((v - xmn) / xR) * pw;
+  const yS = v => pad.t + ph - ((v - ymn) / yR) * ph;
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const parts = [];
+
+  // axes
+  parts.push(`<line x1="${pad.l}" y1="${pad.t+ph}" x2="${pad.l+pw}" y2="${pad.t+ph}" stroke="#ced4da" stroke-width="0.8"/>`);
+  parts.push(`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t+ph}" stroke="#ced4da" stroke-width="0.8"/>`);
+
+  // ticks
+  for (let i = 0; i <= 4; i++) {
+    const vx = xmn + xR * i / 4, vy = ymn + yR * i / 4;
+    parts.push(`<text x="${xS(vx)}" y="${pad.t+ph+12}" font-size="9" fill="#6c757d" text-anchor="middle">${vx.toFixed(2)}</text>`);
+    parts.push(`<text x="${pad.l-4}" y="${yS(vy)+3}" font-size="9" fill="#6c757d" text-anchor="end">${vy.toFixed(2)}</text>`);
+  }
+
+  // diagonal
+  if (opts.diag) {
+    const lo = Math.max(xmn, ymn), hi = Math.min(xmx, ymx);
+    parts.push(`<line x1="${xS(lo)}" y1="${yS(lo)}" x2="${xS(hi)}" y2="${yS(hi)}" stroke="#adb5bd" stroke-width="0.8" stroke-dasharray="3,3"/>`);
+  }
+  // threshold lines (LZ vs ACC case)
+  if (opts.xLine != null && opts.xLine >= xmn && opts.xLine <= xmx) {
+    parts.push(`<line x1="${xS(opts.xLine)}" y1="${pad.t}" x2="${xS(opts.xLine)}" y2="${pad.t+ph}" stroke="#dc3545" stroke-width="1" stroke-dasharray="4,3"/>`);
+  }
+  if (opts.yLine != null && opts.yLine >= ymn && opts.yLine <= ymx) {
+    parts.push(`<line x1="${pad.l}" y1="${yS(opts.yLine)}" x2="${pad.l+pw}" y2="${yS(opts.yLine)}" stroke="#dc3545" stroke-width="1" stroke-dasharray="4,3"/>`);
+  }
+
+  // points
+  const colorFor = p => {
+    if (opts.colorBy === "status") {
+      if (p.status === "bailout") return "#dc3545";
+      if (p.status === "flagged") return "#fd7e14";
+      return "#28a745";
+    }
+    return p.bail ? "#adb5bd" : "#2c5282";
+  };
+  pts.forEach(p => {
+    const cx = xS(p.x), cy = yS(p.y);
+    if (cx < pad.l || cx > pad.l + pw || cy < pad.t || cy > pad.t + ph) return;
+    if (p.bail) {
+      // gray X for bailouts
+      parts.push(`<line x1="${cx-3}" y1="${cy-3}" x2="${cx+3}" y2="${cy+3}" stroke="${colorFor(p)}" stroke-width="1"/>`);
+      parts.push(`<line x1="${cx-3}" y1="${cy+3}" x2="${cx+3}" y2="${cy-3}" stroke="${colorFor(p)}" stroke-width="1"/>`);
+    } else {
+      parts.push(`<circle cx="${cx}" cy="${cy}" r="2.6" fill="${colorFor(p)}" fill-opacity="0.65"/>`);
+    }
+  });
+
+  // axis labels
+  if (opts.xLabel) parts.push(`<text x="${pad.l + pw/2}" y="${H-4}" font-size="10" fill="#495057" text-anchor="middle">${opts.xLabel}</text>`);
+  if (opts.yLabel) parts.push(`<text transform="translate(10,${pad.t + ph/2}) rotate(-90)" font-size="10" fill="#495057" text-anchor="middle">${opts.yLabel}</text>`);
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+}
+
+function drawDeltaHist(elId, vals) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!vals.length) { el.innerHTML = `<div style="font-size:11px;color:#adb5bd">No data.</div>`; return; }
+  // One-sided: by construction, removing chunks (which have lower-than-outside acc) cannot
+  // decrease the overall mean. Clip tiny negative floating-point noise to 0.
+  const clipped = vals.map(v => Math.max(v, 0));
+  const mx = Math.max(...clipped, 0.01);
+  const nBins = 20, bw = mx / nBins;
+  const bins = Array(nBins).fill(0);
+  clipped.forEach(v => { let i = Math.min(Math.floor(v / bw), nBins - 1); bins[i]++; });
+  const W = 320, H = 240, pad = { t: 10, r: 12, b: 30, l: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const maxC = Math.max(...bins);
+  const barW = pw / nBins;
+  const parts = [];
+  bins.forEach((c, i) => {
+    const bh = maxC ? (c / maxC) * ph : 0;
+    parts.push(`<rect x="${pad.l + i * barW}" y="${pad.t + ph - bh}" width="${barW - 1}" height="${bh}" fill="#28a745" fill-opacity="0.8"/>`);
+  });
+  parts.push(`<line x1="${pad.l}" y1="${pad.t+ph}" x2="${pad.l+pw}" y2="${pad.t+ph}" stroke="#ced4da" stroke-width="0.8"/>`);
+  for (let i = 0; i <= 4; i++) {
+    const v = mx * i / 4;
+    parts.push(`<text x="${pad.l + pw*i/4}" y="${H-10}" font-size="9" fill="#6c757d" text-anchor="middle">${v.toFixed(2)}</text>`);
+  }
+  for (let i = 0; i <= 3; i++) {
+    const v = Math.round(maxC * i / 3);
+    parts.push(`<text x="${pad.l - 4}" y="${pad.t + ph - (ph*i/3) + 3}" font-size="9" fill="#6c757d" text-anchor="end">${v}</text>`);
+  }
+  parts.push(`<text x="${pad.l + pw/2}" y="${H-1}" font-size="10" fill="#495057" text-anchor="middle">&Delta; accuracy</text>`);
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+}
+
+function drawStackedPctHist(elId, participants) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!participants.length) { el.innerHTML = `<div style="font-size:11px;color:#adb5bd">No data.</div>`; return; }
+  const W = 320, H = 240, pad = { t: 10, r: 12, b: 30, l: 40 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const nBins = 20, mn = 0, mx = 100, bw = (mx - mn) / nBins;
+  const binsNon  = Array(nBins).fill(0);
+  const binsBail = Array(nBins).fill(0);
+  participants.forEach(p => {
+    const v = p.pct_flagged ?? 0;
+    let i = Math.min(Math.floor((v - mn) / bw), nBins - 1); if (i < 0) i = 0;
+    if (p.status === "bailout") binsBail[i]++; else binsNon[i]++;
+  });
+  const maxC = Math.max(...binsNon.map((v, i) => v + binsBail[i]));
+  const barW = pw / nBins;
+  const parts = [];
+  for (let i = 0; i < nBins; i++) {
+    const nTotal = binsNon[i] + binsBail[i];
+    if (!nTotal) continue;
+    const hTotal = maxC ? (nTotal / maxC) * ph : 0;
+    const hNon   = maxC ? (binsNon[i] / maxC) * ph : 0;
+    const x = pad.l + i * barW;
+    // non-bailout at bottom (blue)
+    if (binsNon[i] > 0) {
+      parts.push(`<rect x="${x}" y="${pad.t + ph - hNon}" width="${barW - 1}" height="${hNon}" fill="#6c8ebf"/>`);
+    }
+    // bailout stacked on top (red)
+    if (binsBail[i] > 0) {
+      parts.push(`<rect x="${x}" y="${pad.t + ph - hTotal}" width="${barW - 1}" height="${hTotal - hNon}" fill="#dc3545"/>`);
+    }
+  }
+  parts.push(`<line x1="${pad.l}" y1="${pad.t+ph}" x2="${pad.l+pw}" y2="${pad.t+ph}" stroke="#ced4da" stroke-width="0.8"/>`);
+  for (let i = 0; i <= 5; i++) {
+    const v = (i / 5) * 100;
+    parts.push(`<text x="${pad.l + pw*i/5}" y="${H-10}" font-size="9" fill="#6c757d" text-anchor="middle">${v.toFixed(0)}%</text>`);
+  }
+  for (let i = 0; i <= 3; i++) {
+    const v = Math.round(maxC * i / 3);
+    parts.push(`<text x="${pad.l - 4}" y="${pad.t + ph - (ph*i/3) + 3}" font-size="9" fill="#6c757d" text-anchor="end">${v}</text>`);
+  }
+  parts.push(`<text x="${pad.l + pw/2}" y="${H-1}" font-size="10" fill="#495057" text-anchor="middle">% flagged</text>`);
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${parts.join("")}</svg>`;
+}
+
+function drawHist(elId, vals, vline, suffix) {
+  if (!vals.length) return;
+  const W = 300, H = 140, pad = { t: 10, r: 10, b: 28, l: 36 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const nBins = 20;
+  const range = mx - mn || 1;
+  const bw = range / nBins;
+  const bins = Array(nBins).fill(0);
+  vals.forEach(v => { let i = Math.min(Math.floor((v - mn) / bw), nBins - 1); bins[i]++; });
+  const maxC = Math.max(...bins);
+  const barW = pw / nBins;
+  let rects = "";
+  bins.forEach((c, i) => {
+    const bh = maxC ? (c / maxC) * ph : 0;
+    rects += `<rect x="${pad.l + i * barW}" y="${pad.t + ph - bh}" width="${barW - 1}" height="${bh}" fill="#6c8ebf"/>`;
+  });
+  let vl = "";
+  if (vline !== null && vline !== undefined) {
+    const x = pad.l + ((vline - mn) / range) * pw;
+    if (x >= pad.l && x <= pad.l + pw) vl = `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + ph}" stroke="#dc3545" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  }
+  const ticks = 5;
+  let labels = "";
+  for (let i = 0; i <= ticks; i++) {
+    const v = mn + (range * i / ticks);
+    const x = pad.l + (pw * i / ticks);
+    labels += `<text x="${x}" y="${H - 4}" font-size="9" fill="#6c757d" text-anchor="middle">${v.toFixed(v >= 10 ? 0 : 2)}${suffix}</text>`;
+  }
+  document.getElementById(elId).innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${rects}${vl}${labels}</svg>`;
+}
+
+// --- Participant View ---
+function selectParticipant(id) {
+  selectedId = id;
+  renderList();
+  document.getElementById("summary-view").style.display = "none";
+  const pv = document.getElementById("participant-view");
+  pv.style.display = "block";
+  const p = P.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById("pv-title").textContent = `Participant ${p.id}`;
+  const accCorr = p.mean_accuracy_corrected;
+  const accStr = accCorr != null && Math.abs(accCorr - (p.mean_accuracy ?? 0)) >= 0.0005
+    ? `Accuracy: ${(p.mean_accuracy ?? 0).toFixed(3)} \u2192 <b>${accCorr.toFixed(3)}</b> (\u2212chunks)`
+    : `Accuracy: ${(p.mean_accuracy ?? 0).toFixed(3)}`;
+  document.getElementById("pv-meta").innerHTML = [
+    `Status: <b>${p.status}${p.bailout_reason ? ` (${p.bailout_reason})` : ""}</b>`,
+    `Trials: ${p.n_trials}${p.n_flagged_chunk ? ` (\u2212${p.n_flagged_chunk} in chunks)` : ""}`,
+    accStr,
+    `LZ: ${(p.lz ?? 0).toFixed(3)}`,
+    `Chunks: ${p.n_chunks ?? 0}`,
+    `Flagged: ${(p.pct_flagged ?? 0).toFixed(1)}%`
+  ].map(s => `<span>${s}</span>`).join("");
+
+  const content = document.getElementById("pv-content");
+  content.innerHTML = "";
+  panelSvgs = [];
+
+  // Bailout banner (shown above panels, not instead of)
+  if (p.status === "bailout") {
+    const banner = document.createElement("div");
+    banner.className = "bail-banner";
+    banner.textContent = "Bailed out \u2014 shown for inspection only, no chunk analysis.";
+    content.appendChild(banner);
+  }
+
+  const td = TRIAL_DATA[id];
+  if (!td || !td.trial_idx) { content.innerHTML += "<p>No trial data available.</p>"; return; }
+  currentTd = td;
+
+  const allChunks = C.filter(c => c.id === id);
+  const sigChunks = allChunks.filter(c => c.significant);
+
+  // Diagnostic panels
+  const panels = [
+    { key: "accuracy", label: "Accuracy strip", type: "strip" },
+    { key: "acc_resid", label: "Accuracy residuals", type: "dots_line" },
+    { key: "resp_lag1", label: "Lag-1 response", type: "dots_line" },
+    { key: "abs_resp", label: "|rolling mean resp| (\u00b11 = stereotyped)", type: "line_threshold" }
+  ];
+  panels.forEach(pan => {
+    const div = document.createElement("div");
+    div.innerHTML = `<div class="panel-label">${pan.label}</div>`;
+    const svg = drawPanel(td, pan, sigChunks, p);
+    panelSvgs.push(svg);
+    div.appendChild(svg);
+    div.classList.add("panel-stack");
+    content.appendChild(div);
+  });
+
+  // Heuristics note
+  if (heur.spurious || heur.boundary_mode === "heuristic") {
+    const note = document.createElement("div");
+    note.style.cssText = "font-size:11px;color:#6c757d;margin-top:8px;";
+    const parts = [];
+    if (heur.boundary_mode === "heuristic") parts.push("heuristic boundaries");
+    if (heur.spurious) parts.push(`spurious trim (\u2265${heur.spurious_k}/${heur.spurious_n} correct \u2192 skip first ${heur.spurious_n})`);
+    note.textContent = "Heuristics: " + parts.join(", ");
+    content.appendChild(note);
+  }
+
+  // Inline chunk table (all tested chunks)
+  if (allChunks.length > 0) {
+    const tbl = document.createElement("table");
+    tbl.className = "chunk-table";
+    const hdrs = ["#", "Trials", "N", "Acc in", "Acc out", "t", "lfdr", "d", "Type"];
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    hdrs.forEach(h => { const th = document.createElement("th"); th.textContent = h; hr.appendChild(th); });
+    thead.appendChild(hr);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    allChunks.forEach((ch, ci) => {
+      const tr = document.createElement("tr");
+      tr.className = "chunk-row";
+      if (!ch.significant) tr.style.opacity = "0.45";
+      tr.addEventListener("mouseenter", () => highlightChunkOnPlots(ch, td));
+      tr.addEventListener("mouseleave", () => clearChunkHighlight());
+
+      const spurTrimmed = ch.spurious_start && ch.test_start;
+      const lfdrStr = ch.lfdr != null ? ch.lfdr.toFixed(4) : "\u2014";
+      const typeLabel = ch.significant
+        ? (spurTrimmed ? "spurious" : "inattention")
+        : "";
+      const cells = [
+        ci + 1,
+        `${ch.start}\u2013${ch.end}`,
+        ch.end - ch.start + 1,
+        (ch.mean_acc_inside ?? 0).toFixed(3),
+        (ch.mean_acc_outside ?? 0).toFixed(3),
+        (ch.t_stat ?? 0).toFixed(2),
+        lfdrStr,
+        (ch.effect_size ?? 0).toFixed(2),
+        typeLabel
+      ];
+      cells.forEach(val => { const td = document.createElement("td"); td.textContent = val; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    content.appendChild(tbl);
+  }
+}
+
+function drawPanel(td, pan, chunks, p) {
+  const N = td.trial_idx.length;
+  const W = 900, H = 80, pad = { t: 8, r: 12, b: 18, l: 44 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const xScale = i => pad.l + (i / (N - 1 || 1)) * pw;
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.style.width = "100%";
+  svg.style.display = "block";
+
+  // Chunk rectangles (no click — table handles interaction)
+  chunks.forEach(ch => {
+    // Spurious-trimmed region (lighter orange)
+    if (ch.spurious_start && ch.test_start) {
+      const sx1 = xScale(ch.start - td.trial_idx[0]);
+      const sx2 = xScale(ch.test_start - td.trial_idx[0]);
+      const sr = document.createElementNS(svgNS, "rect");
+      sr.setAttribute("x", sx1); sr.setAttribute("y", pad.t);
+      sr.setAttribute("width", Math.max(sx2 - sx1, 2)); sr.setAttribute("height", ph);
+      sr.setAttribute("fill", "rgba(253,126,20,0.15)"); sr.setAttribute("stroke", "rgba(253,126,20,0.3)");
+      sr.setAttribute("stroke-width", "0.5");
+      svg.appendChild(sr);
+    }
+    // Main tested region
+    const testStart = ch.test_start || ch.start;
+    const x1 = xScale(testStart - td.trial_idx[0]);
+    const x2 = xScale(ch.end - td.trial_idx[0]);
+    const rect = document.createElementNS(svgNS, "rect");
+    rect.setAttribute("x", x1); rect.setAttribute("y", pad.t);
+    rect.setAttribute("width", Math.max(x2 - x1, 2)); rect.setAttribute("height", ph);
+    rect.setAttribute("fill", "rgba(220,53,69,0.15)"); rect.setAttribute("stroke", "rgba(220,53,69,0.3)");
+    rect.setAttribute("stroke-width", "0.5");
+    svg.appendChild(rect);
+  });
+
+  // Baseline
+  const baseLine = document.createElementNS(svgNS, "line");
+  baseLine.setAttribute("x1", pad.l); baseLine.setAttribute("x2", pad.l + pw);
+  baseLine.setAttribute("stroke", "#dee2e6"); baseLine.setAttribute("stroke-width", "0.5");
+
+  if (pan.type === "strip") {
+    baseLine.setAttribute("y1", pad.t + ph); baseLine.setAttribute("y2", pad.t + ph);
+    svg.appendChild(baseLine);
+    const correct = td.correct;
+    for (let i = 0; i < N; i++) {
+      const x = xScale(i);
+      const tickH = correct[i] ? ph * 0.85 : ph * 0.35;
+      const line = document.createElementNS(svgNS, "line");
+      line.setAttribute("x1", x); line.setAttribute("x2", x);
+      line.setAttribute("y1", pad.t + ph); line.setAttribute("y2", pad.t + ph - tickH);
+      line.setAttribute("stroke", correct[i] ? "#28a745" : "#dc3545");
+      line.setAttribute("stroke-width", Math.max(pw / N * 0.6, 0.5));
+      line.setAttribute("stroke-opacity", "0.7");
+      svg.appendChild(line);
+    }
+  } else {
+    const vals = pan.key === "accuracy" ? td.correct : td[pan.key];
+    if (!vals) return svg;
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    const range = mx - mn || 1;
+    const yScale = v => pad.t + ph - ((v - mn) / range) * ph;
+    if (mn < 0 && mx > 0) {
+      baseLine.setAttribute("y1", yScale(0)); baseLine.setAttribute("y2", yScale(0));
+      svg.appendChild(baseLine);
+    } else {
+      const mid = (mn + mx) / 2;
+      baseLine.setAttribute("y1", yScale(mid)); baseLine.setAttribute("y2", yScale(mid));
+      svg.appendChild(baseLine);
+    }
+
+    if (pan.type === "dots_line") {
+      for (let i = 0; i < N; i++) {
+        const c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", xScale(i)); c.setAttribute("cy", yScale(vals[i]));
+        c.setAttribute("r", Math.min(1.8, pw / N * 0.4));
+        c.setAttribute("fill", "#6c8ebf"); c.setAttribute("fill-opacity", "0.5");
+        svg.appendChild(c);
+      }
+      svg.appendChild(smoothedPath(vals, xScale, yScale, svgNS, "#2c5282"));
+    } else if (pan.type === "line_threshold") {
+      svg.appendChild(linePath(vals, xScale, yScale, svgNS, "#2c5282"));
+      let thr = null;
+      if (ctrl.screening_threshold === "lz") thr = p.lz;
+      else if (typeof ctrl.screening_threshold === "number") thr = ctrl.screening_threshold;
+      if (thr !== null && thr !== undefined) {
+        const tl = document.createElementNS(svgNS, "line");
+        tl.setAttribute("x1", pad.l); tl.setAttribute("x2", pad.l + pw);
+        const ty = yScale(thr);
+        tl.setAttribute("y1", ty); tl.setAttribute("y2", ty);
+        tl.setAttribute("stroke", "#dc3545"); tl.setAttribute("stroke-width", "1");
+        tl.setAttribute("stroke-dasharray", "5,3");
+        svg.appendChild(tl);
+      }
+    } else if (pan.type === "line") {
+      svg.appendChild(linePath(vals, xScale, yScale, svgNS, "#2c5282"));
+    }
+
+    // y-axis labels
+    [mn, mx].forEach(v => {
+      const t = document.createElementNS(svgNS, "text");
+      t.setAttribute("x", pad.l - 4); t.setAttribute("y", yScale(v) + 3);
+      t.setAttribute("font-size", "8"); t.setAttribute("fill", "#6c757d");
+      t.setAttribute("text-anchor", "end"); t.textContent = v.toFixed(1);
+      svg.appendChild(t);
+    });
+  }
+
+  // x-axis ticks
+  const xTicks = [0, Math.floor(N / 4), Math.floor(N / 2), Math.floor(3 * N / 4), N - 1];
+  xTicks.forEach(i => {
+    if (i >= N) return;
+    const t = document.createElementNS(svgNS, "text");
+    t.setAttribute("x", xScale(i)); t.setAttribute("y", H - 3);
+    t.setAttribute("font-size", "8"); t.setAttribute("fill", "#adb5bd");
+    t.setAttribute("text-anchor", "middle"); t.textContent = td.trial_idx[i];
+    svg.appendChild(t);
+  });
+
+  // Crosshair line (hidden by default, shown on mousemove)
+  const xh = document.createElementNS(svgNS, "line");
+  xh.setAttribute("class", "x-crosshair");
+  xh.setAttribute("y1", pad.t); xh.setAttribute("y2", pad.t + ph);
+  xh.setAttribute("stroke", "#495057"); xh.setAttribute("stroke-width", "0.7");
+  xh.setAttribute("stroke-dasharray", "3,2"); xh.setAttribute("pointer-events", "none");
+  xh.style.display = "none";
+  svg.appendChild(xh);
+
+  return svg;
+}
+
+function linePath(vals, xScale, yScale, ns, color) {
+  let d = vals.map((v, i) => `${i === 0 ? "M" : "L"}${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(" ");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", d); path.setAttribute("fill", "none");
+  path.setAttribute("stroke", color); path.setAttribute("stroke-width", "1.2");
+  return path;
+}
+
+function smoothedPath(vals, xScale, yScale, ns, color) {
+  const win = Math.max(3, Math.round(vals.length / 30));
+  const sm = vals.map((_, i) => {
+    const lo = Math.max(0, i - win), hi = Math.min(vals.length - 1, i + win);
+    let s = 0, c = 0;
+    for (let j = lo; j <= hi; j++) { s += vals[j]; c++; }
+    return s / c;
+  });
+  return linePath(sm, xScale, yScale, ns, color);
+}
+
+// --- Crosshair sync across panels ---
+const _XH_W = 900, _XH_PL = 44, _XH_PR = 12, _XH_PW = _XH_W - _XH_PL - _XH_PR;
+
+function showCrosshairs(idx, N) {
+  const x = _XH_PL + (idx / (N - 1 || 1)) * _XH_PW;
+  panelSvgs.forEach(svg => {
+    const xh = svg.querySelector(".x-crosshair");
+    if (xh) { xh.setAttribute("x1", x); xh.setAttribute("x2", x); xh.style.display = ""; }
+  });
+}
+
+function hideCrosshairs() {
+  panelSvgs.forEach(svg => {
+    const xh = svg.querySelector(".x-crosshair");
+    if (xh) xh.style.display = "none";
+  });
+}
+
+function clientToTrialIdx(svgEl, clientX, N) {
+  const rect = svgEl.getBoundingClientRect();
+  const svgX = (clientX - rect.left) / rect.width * _XH_W;
+  const frac = (svgX - _XH_PL) / _XH_PW;
+  return Math.round(frac * (N - 1));
+}
+
+// --- Chunk highlight on plots (from table hover) ---
+function highlightChunkOnPlots(ch, td) {
+  clearChunkHighlight();
+  const N = td.trial_idx.length;
+  const xScale = i => _XH_PL + (i / (N - 1 || 1)) * _XH_PW;
+  const x1 = xScale(ch.start - td.trial_idx[0]);
+  const x2 = xScale(ch.end - td.trial_idx[0]);
+  const svgNS = "http://www.w3.org/2000/svg";
+  panelSvgs.forEach(svg => {
+    const hl = document.createElementNS(svgNS, "rect");
+    hl.setAttribute("class", "chunk-highlight");
+    hl.setAttribute("x", x1); hl.setAttribute("y", 8);
+    hl.setAttribute("width", Math.max(x2 - x1, 2)); hl.setAttribute("height", 54);
+    hl.setAttribute("fill", "rgba(13,110,253,0.12)");
+    hl.setAttribute("stroke", "#0d6efd"); hl.setAttribute("stroke-width", "1");
+    hl.setAttribute("pointer-events", "none");
+    svg.appendChild(hl);
+  });
+}
+
+function clearChunkHighlight() {
+  panelSvgs.forEach(svg => {
+    svg.querySelectorAll(".chunk-highlight").forEach(el => el.remove());
+  });
+}
+
+// --- Navigation ---
+document.getElementById("pv-back").addEventListener("click", () => {
+  selectedId = null;
+  currentTd = null;
+  renderList();
+  document.getElementById("participant-view").style.display = "none";
+  document.getElementById("summary-view").style.display = "block";
+});
+
+// --- Export CSV ---
+document.getElementById("export-btn").addEventListener("click", () => {
+  const rows = [["id", "chunk_id", "start", "end", "significant", "lfdr", "p_adj", "effect_size"]];
+  C.forEach(c => rows.push([c.id, c.chunk_id, c.start, c.end, c.significant, c.lfdr ?? "", c.p_adj, c.effect_size]));
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "inough_flagged_chunks.csv";
+  a.click();
+});
+
+// --- Crosshair mouse events ---
+(function() {
+  const pvContent = document.getElementById("pv-content");
+  pvContent.addEventListener("mousemove", e => {
+    if (!currentTd || !panelSvgs.length) return;
+    const svgEl = e.target.closest("svg");
+    if (!svgEl || !panelSvgs.includes(svgEl)) return;
+    const N = currentTd.trial_idx.length;
+    const idx = clientToTrialIdx(svgEl, e.clientX, N);
+    if (idx >= 0 && idx < N) showCrosshairs(idx, N);
+  });
+  pvContent.addEventListener("mouseleave", () => hideCrosshairs());
+})();
+
+// --- Init ---
+renderList();
+renderSummary();
+})();
+</script>
+</div>
+</body>
+</html>

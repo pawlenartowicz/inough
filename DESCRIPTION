@@ -1,0 +1,30 @@
+Package: inough
+Version: 0.1.0
+Title: Inattention Detection Pipeline for Psychophysical Tasks
+Description: Three-stage pipeline for detecting inattention episodes in
+    long psychophysical tasks (200+ trials). Uses accuracy residuals and
+    response pattern signals to locate, sharpen, and formally test
+    candidate inattention regions at trial-level precision.
+Authors@R: c(
+    person("Pawel", "Lenartowicz",
+           email = "pawel.lenartowicz@uj.edu.pl",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-6906-7217")),
+    person("Maja", "Willard",
+           role = "aut",
+           comment = c(ORCID = "0009-0005-3482-1119")))
+License: GPL (>= 3)
+Encoding: UTF-8
+Depends:
+    R (>= 3.5.0)
+LazyData: true
+RoxygenNote: 7.3.3
+Imports:
+    lme4,
+    ggplot2,
+    patchwork,
+    rlang,
+    jsonlite
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

@@ -1,0 +1,9 @@
+^README\.md$
+^\.git$
+^\.gitignore$
+^\.Rproj\.user$
+^.*\.Rproj$
+^.*\.Rcheck$
+^\.github$
+^NEWS\.md$
+^LICENSE\.md$
