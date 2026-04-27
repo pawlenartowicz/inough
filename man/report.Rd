@@ -7,7 +7,7 @@
 \usage{
 report(x, ...)
 
-\method{report}{inough_detected}(x, file = NULL, ...)
+\method{report}{inough_detected}(x, file = NULL, custom_plot = NULL, ...)
 }
 \arguments{
 \item{x}{An \code{inough_detected} object.}
@@ -16,6 +16,16 @@ report(x, ...)
 
 \item{file}{Output file path. If \code{NULL} (default), uses a tempfile and
 opens in the browser.}
+
+\item{custom_plot}{Optional per-trial variable to show as an extra panel in
+the participant view. A list with three fields:
+\itemize{
+  \item \code{data}: a data.frame with columns \code{id}, \code{trial_idx},
+    \code{value}. \code{trial_idx} is 1-based within participant, matching
+    the trial order fed to \code{inough_signals}.
+  \item \code{title}: string shown as the panel label.
+  \item \code{description}: string shown as the panel blurb.
+}}
 }
 \value{
 Invisibly returns the file path.
