@@ -12,10 +12,21 @@ report <- function(x, ...) UseMethod("report")
 #' @rdname report
 #' @param file Output file path. If \code{NULL} (default), uses a tempfile and
 #'   opens in the browser.
+#' @param custom_plot Optional per-trial variable to show as an extra panel in
+#'   the participant view. A list with three fields:
+#'   \itemize{
+#'     \item \code{data}: a data.frame with columns \code{id}, \code{trial_idx},
+#'       \code{value}. \code{trial_idx} is 1-based within participant, matching
+#'       the trial order fed to \code{inough_signals}.
+#'     \item \code{title}: string shown as the panel label.
+#'     \item \code{description}: string shown as the panel blurb.
+#'   }
 #' @export
-report.inough_detected <- function(x, file = NULL, ...) {
+report.inough_detected <- function(x, file = NULL, custom_plot = NULL, ...) {
   open_browser <- is.null(file)
   if (is.null(file)) file <- tempfile(fileext = ".html")
+
+  custom_plot <- validate_custom_plot(custom_plot)
 
   # --- SUMMARY JSON ---
   participants_list <- build_participant_summary(x)
@@ -27,18 +38,20 @@ report.inough_detected <- function(x, file = NULL, ...) {
       generated       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S"),
       control         = c(as.list(x$control), list(fdr_alpha = x$fdr_alpha)),
       heuristics      = unclass(x$heuristics),
-      aggregate       = build_aggregate_summary(participants_list)
+      aggregate       = build_aggregate_summary(participants_list),
+      custom_plot     = if (is.null(custom_plot)) NULL else
+        list(title = custom_plot$title, description = custom_plot$description)
     ),
     participants = participants_list,
     chunks       = build_chunk_summary(x)
   )
   summary_json <- jsonlite::toJSON(summary_data, auto_unbox = TRUE,
-                                   digits = 4, pretty = FALSE)
+                                   digits = 4, pretty = FALSE, null = "null")
 
   # --- TRIAL DATA JSON (column-array per participant) ---
-  trial_data <- build_trial_data(x)
+  trial_data <- build_trial_data(x, custom_plot = custom_plot)
   trial_json <- jsonlite::toJSON(trial_data, auto_unbox = FALSE,
-                                  digits = 4, pretty = FALSE)
+                                  digits = 4, pretty = FALSE, na = "null")
 
   # --- Build HTML ---
   template_path <- system.file("report_template.html", package = "inough")
@@ -167,7 +180,7 @@ build_chunk_summary <- function(x) {
   })
 }
 
-build_trial_data <- function(x) {
+build_trial_data <- function(x, custom_plot = NULL) {
   w     <- x$control$window_size
   trial <- x$signals$trial
   ids   <- x$signals$participant$id
@@ -183,7 +196,7 @@ build_trial_data <- function(x) {
     )
     roll_resp <- rolling_wmean(pt$resp_lag1, weights)
 
-    out[[pid]] <- list(
+    entry <- list(
       trial_idx  = pt$trial_idx,
       correct    = pt$correct,
       acc_resid  = round(pt$acc_resid, 4),
@@ -191,6 +204,47 @@ build_trial_data <- function(x) {
       roll_resp  = round(roll_resp, 4),
       abs_resp   = round(abs(roll_resp), 4)
     )
+
+    if (!is.null(custom_plot)) {
+      cp_sub <- custom_plot$data[custom_plot$data$id == pid, , drop = FALSE]
+      aligned <- rep(NA_real_, nrow(pt))
+      if (nrow(cp_sub) > 0L) {
+        m <- match(pt$trial_idx, cp_sub$trial_idx)
+        aligned <- as.numeric(cp_sub$value)[m]
+      }
+      entry$custom <- round(aligned, 4)
+    }
+
+    out[[pid]] <- entry
   }
   out
+}
+
+validate_custom_plot <- function(cp) {
+  if (is.null(cp)) return(NULL)
+  if (!is.list(cp)) stop("'custom_plot' must be a list with fields data, title, description")
+  required <- c("data", "title", "description")
+  missing_f <- setdiff(required, names(cp))
+  if (length(missing_f) > 0L) {
+    stop("'custom_plot' is missing fields: ", paste(missing_f, collapse = ", "))
+  }
+  if (!is.data.frame(cp$data)) stop("'custom_plot$data' must be a data.frame")
+  req_cols <- c("id", "trial_idx", "value")
+  missing_c <- setdiff(req_cols, names(cp$data))
+  if (length(missing_c) > 0L) {
+    stop("'custom_plot$data' is missing columns: ", paste(missing_c, collapse = ", "))
+  }
+  if (!is.character(cp$title) || length(cp$title) != 1L) {
+    stop("'custom_plot$title' must be a single string")
+  }
+  if (!is.character(cp$description) || length(cp$description) != 1L) {
+    stop("'custom_plot$description' must be a single string")
+  }
+  cp$data <- data.frame(
+    id        = as.character(cp$data$id),
+    trial_idx = as.integer(cp$data$trial_idx),
+    value     = as.numeric(cp$data$value),
+    stringsAsFactors = FALSE
+  )
+  cp
 }

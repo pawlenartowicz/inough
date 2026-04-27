@@ -239,6 +239,42 @@ A chunk is flagged when `lfdr < fdr_alpha`. BH-adjusted p-values are also comput
 - Summary statistics and distribution plots
 - CSV export of all flagged chunks
 
+#### Custom plot panel
+
+`report()` accepts an optional `custom_plot` argument that adds one extra
+points-only panel to the per-participant view (after the four built-in
+diagnostic panels). Useful for showing a per-trial covariate alongside
+inattention signals — e.g. confidence ratings, PAS, RT, stimulus contrast.
+
+`custom_plot` is a list with three fields:
+
+- `data` — a data frame with columns `id`, `trial_idx`, `value`. `trial_idx` is
+  1-based within participant and must match the trial order fed to
+  `inough_signals()` (i.e., the row order in the input data frame, after any
+  filtering applied before calling `inough_signals`). Missing rows or `NA`
+  values are rendered as gaps.
+- `title` — string shown as the panel label (left column).
+- `description` — string shown as the panel blurb (left column).
+
+```r
+# Example: PAS (1-4 scale) as a custom panel
+pas_df <- data.frame(
+  id        = my_data$ID,
+  trial_idx = ave(seq_len(nrow(my_data)), my_data$ID, FUN = seq_along),
+  value     = my_data$PAS
+)
+
+report(
+  detected,
+  file = "report.html",
+  custom_plot = list(
+    data        = pas_df,
+    title       = "PAS rating",
+    description = "Perceptual Awareness Scale (1 = no experience, 4 = clear)."
+  )
+)
+```
+
 ## Output structure
 
 `inough_detect()` returns an `inough_detected` object containing:

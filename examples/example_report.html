@@ -12,9 +12,10 @@ body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f0f2f5; 
 #main-scroll { flex: 1; overflow-y: auto; display: flex; justify-content: center; background: #f0f2f5; }
 /* Sidebar */
 #sidebar { width: 360px; min-width: 360px; background: #f8f9fa; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; height: 100vh; }
-#sidebar-header { padding: 14px 16px 10px; border-bottom: 1px solid #dee2e6; }
-#sidebar-header h1 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-#sidebar-controls { display: flex; gap: 6px; }
+#sidebar-header { padding: 14px 16px 12px; border-bottom: 1px solid #dee2e6; }
+#sidebar-header h1 { font-size: 16px; font-weight: 700; }
+.sidebar-desc { font-size: 11px; color: #6c757d; margin-top: 4px; line-height: 1.4; }
+#sidebar-controls { display: flex; gap: 6px; padding: 8px 16px; border-bottom: 1px solid #dee2e6; }
 #sidebar-controls select, #sidebar-controls input { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #ced4da; border-radius: 4px; background: #fff; }
 #sidebar-controls input { flex: 1; }
 #list-header { display: grid; grid-template-columns: 10px 1fr 42px 42px 24px 40px; gap: 6px; padding: 4px 16px; font-size: 10px; text-transform: uppercase; color: #adb5bd; border-bottom: 1px solid #dee2e6; }
@@ -63,9 +64,28 @@ body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f0f2f5; 
 .pv-meta { display: flex; gap: 16px; font-size: 13px; color: #495057; margin-bottom: 16px; flex-wrap: wrap; }
 .pv-meta span { background: #f1f3f5; padding: 3px 10px; border-radius: 4px; }
 .bail-banner { background: #dc3545; color: #fff; padding: 16px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.panel-stack { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: start; margin-top: 14px; }
 .panel-stack svg { width: 100%; display: block; }
-.panel-label { font-size: 11px; font-weight: 600; color: #495057; margin: 8px 0 2px; }
+.panel-info { padding-top: 2px; }
+.panel-label { font-size: 11px; font-weight: 600; color: #495057; margin: 0 0 4px; }
+.panel-blurb { font-size: 11px; color: #6c757d; line-height: 1.45; }
+@media (max-width: 900px) {
+  .panel-stack { grid-template-columns: 1fr; gap: 4px; margin-top: 10px; }
+  .panel-info { padding-top: 0; }
+}
+/* Sidebar glossary */
+.sidebar-glossary { border-bottom: 1px solid #dee2e6; background: #fff; flex-shrink: 0; max-height: 55vh; overflow-y: auto; }
+.sidebar-glossary > summary { cursor: pointer; font-weight: 600; font-size: 12px; color: #495057; list-style: none; padding: 8px 16px; background: #f8f9fa; position: sticky; top: 0; user-select: none; border-bottom: 1px solid #dee2e6; }
+.sidebar-glossary > summary::-webkit-details-marker { display: none; }
+.sidebar-glossary > summary::before { content: "▸"; color: #6c757d; display: inline-block; width: 14px; }
+.sidebar-glossary[open] > summary::before { content: "▾"; }
+.sidebar-glossary dl { margin: 0; padding: 10px 16px 14px; font-size: 11px; line-height: 1.45; }
+.sidebar-glossary dt { font-weight: 600; color: #495057; margin-top: 8px; }
+.sidebar-glossary dt:first-child { margin-top: 0; }
+.sidebar-glossary dd { color: #495057; margin: 2px 0 0; }
+.sidebar-glossary dd .sub { display: block; padding-left: 8px; color: #6c757d; margin-top: 1px; }
 /* Chunk table */
+.chunk-empty { font-size: 12px; color: #6c757d; background: #f8f9fa; border: 1px dashed #dee2e6; border-radius: 6px; padding: 10px 14px; }
 .chunk-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
 .chunk-table th { text-align: left; padding: 4px 8px; font-weight: 600; color: #6c757d; font-size: 11px; border-bottom: 1px solid #dee2e6; }
 .chunk-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
@@ -79,10 +99,31 @@ body { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f0f2f5; 
 <div id="sidebar">
   <div id="sidebar-header">
     <h1>inough report</h1>
-    <div id="sidebar-controls">
-      <select id="sort-select"><option value="status">Status</option><option value="lz_asc">LZ (low first)</option><option value="lz_desc">LZ (high first)</option><option value="pct">% Flagged</option><option value="acc">Accuracy (low first)</option><option value="chunks">Chunks (most first)</option><option value="id">ID</option></select>
-      <input id="search-input" placeholder="Search ID...">
-    </div>
+    <p class="sidebar-desc">Inattention detection for long psychophysical tasks.</p>
+  </div>
+  <details class="sidebar-glossary">
+    <summary>Glossary</summary>
+    <dl>
+      <dt>LZ</dt><dd>Lempel-Ziv complexity of the response sequence. <b>LZ &asymp; 1</b>: cannot be differentiated from random. <b>LZ &lt;&lt; 1</b>: visible pattern in responses (stereotypy).</dd>
+      <dt>Chunk</dt><dd>Contiguous window of consecutive trials tested for a local accuracy dip.</dd>
+      <dt>Chunk type</dt><dd>
+        <span class="sub"><b>inattention</b> &mdash; significant after FDR + lfdr; real lapse</span>
+        <span class="sub"><b>spurious</b> &mdash; significant but start was lucky-correct; trimmed</span>
+        <span class="sub"><i>blank</i> &mdash; tested, not significant</span>
+      </dd>
+      <dt>Bailout</dt><dd>Participant excluded before chunk analysis.
+        <span class="sub"><b>lz</b> &mdash; response sequence too stereotyped</span>
+        <span class="sub"><b>chance</b> &mdash; accuracy at or below chance</span>
+      </dd>
+      <dt>lfdr</dt><dd>Local false discovery rate (Bayesian, LZ-informed). Smaller = stronger evidence the chunk is a real lapse.</dd>
+      <dt>Lag-1 response</dt><dd>Correlation between consecutive responses.</dd>
+      <dt>Rolling mean</dt><dd>Sliding-window average across trials.</dd>
+      <dt>&Delta;acc (&minus;chunks)</dt><dd>Accuracy with flagged chunks removed, minus raw accuracy.</dd>
+    </dl>
+  </details>
+  <div id="sidebar-controls">
+    <select id="sort-select"><option value="status">Status</option><option value="lz_asc">LZ (low first)</option><option value="lz_desc">LZ (high first)</option><option value="pct">% Flagged</option><option value="acc">Accuracy (low first)</option><option value="chunks">Chunks (most first)</option><option value="id">ID</option></select>
+    <input id="search-input" placeholder="Search ID...">
   </div>
   <div id="list-header"><span></span><span>ID</span><span>Acc</span><span>LZ</span><span>Ch</span><span>Flag%</span></div>
   <div id="participant-list"></div>
@@ -526,18 +567,28 @@ function selectParticipant(id) {
 
   // Diagnostic panels
   const panels = [
-    { key: "accuracy", label: "Accuracy strip", type: "strip" },
-    { key: "acc_resid", label: "Accuracy residuals", type: "dots_line" },
-    { key: "resp_lag1", label: "Lag-1 response", type: "dots_line" },
-    { key: "abs_resp", label: "|rolling mean resp| (\u00b11 = stereotyped)", type: "line_threshold" }
+    { key: "accuracy", label: "Accuracy strip", type: "strip",
+      blurb: "Each tick = one trial (green/red = correct/incorrect)." },
+    { key: "acc_resid", label: "Accuracy residuals", type: "dots_line",
+      blurb: "Rolling accuracy minus participant mean. Dips below 0 = local underperformance. Adjusted for trial difficulty." },
+    { key: "resp_lag1", label: "Lag-1 response", type: "dots_line",
+      blurb: "Correlation between consecutive responses. High = stereotyped 'same key many times in row' pattern, low = stereotyped 'pressing the keys alternately'." },
+    { key: "abs_resp", label: "|rolling mean resp| (\u00b11 = stereotyped)", type: "line_threshold",
+      blurb: "|mean of recent responses|; near ±1 = strong stereotypy." }
   ];
   panels.forEach(pan => {
     const div = document.createElement("div");
-    div.innerHTML = `<div class="panel-label">${pan.label}</div>`;
+    div.className = "panel-stack";
+    const info = document.createElement("div");
+    info.className = "panel-info";
+    info.innerHTML = `<div class="panel-label">${pan.label}</div><div class="panel-blurb">${pan.blurb}</div>`;
+    const plot = document.createElement("div");
+    plot.className = "panel-plot";
     const svg = drawPanel(td, pan, sigChunks, p);
     panelSvgs.push(svg);
-    div.appendChild(svg);
-    div.classList.add("panel-stack");
+    plot.appendChild(svg);
+    div.appendChild(info);
+    div.appendChild(plot);
     content.appendChild(div);
   });
 
@@ -552,8 +603,20 @@ function selectParticipant(id) {
     content.appendChild(note);
   }
 
-  // Inline chunk table (all tested chunks)
-  if (allChunks.length > 0) {
+  // Chunk candidates — same 2-column structure as plot panels
+  const chunkStack = document.createElement("div");
+  chunkStack.className = "panel-stack";
+  const chunkInfo = document.createElement("div");
+  chunkInfo.className = "panel-info";
+  chunkInfo.innerHTML = `<div class="panel-label">Chunk candidates</div><div class="panel-blurb">Candidate windows of consecutive trials, Welch-tested against the rest of this participant's trials. <b>inattention</b> = flagged significant. <b>spurious</b> = start was lucky-correct, trimmed. Blank type = tested, not significant. Hover a row to highlight the window on the plots.</div>`;
+  const chunkRight = document.createElement("div");
+  chunkRight.className = "panel-plot";
+  if (allChunks.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "chunk-empty";
+    empty.textContent = "No chunk candidates detected — this participant's response pattern showed no stereotypy windows worth testing.";
+    chunkRight.appendChild(empty);
+  } else {
     const tbl = document.createElement("table");
     tbl.className = "chunk-table";
     const hdrs = ["#", "Trials", "N", "Acc in", "Acc out", "t", "lfdr", "d", "Type"];
@@ -591,8 +654,11 @@ function selectParticipant(id) {
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
-    content.appendChild(tbl);
+    chunkRight.appendChild(tbl);
   }
+  chunkStack.appendChild(chunkInfo);
+  chunkStack.appendChild(chunkRight);
+  content.appendChild(chunkStack);
 }
 
 function drawPanel(td, pan, chunks, p) {
